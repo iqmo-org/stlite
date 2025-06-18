@@ -5,6 +5,9 @@ import { generateRandomAppId } from "./app-id";
 
 const pyodideUrl = "https://cdn.jsdelivr.net/pyodide/v0.28.2/full/pyodide.mjs";
 
+//@ts-ignore
+delete WebAssembly.Suspending
+
 if ("postMessage" in self) {
   // Dedicated worker
   self.onmessage = startWorkerEnv(pyodideUrl, (event, transfer) =>
