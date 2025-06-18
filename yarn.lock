@@ -2275,6 +2275,35 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@iqmo/browser@workspace:packages/browser":
+  version: 0.0.0-use.local
+  resolution: "@iqmo/browser@workspace:packages/browser"
+  dependencies:
+    "@emotion/babel-plugin": "npm:^11.13.5"
+    "@stlite/common": "workspace:^"
+    "@stlite/common-react": "workspace:^"
+    "@stlite/devutils": "workspace:^"
+    "@stlite/kernel": "workspace:^"
+    "@streamlit/app": "workspace:^"
+    "@types/react": "npm:^18.2.0"
+    "@types/react-dom": "npm:^18.2.0"
+    "@vitejs/plugin-react": "npm:^4.3.4"
+    codedent: "npm:^0.1.2"
+    eslint: "npm:^8.33.0"
+    prettier: "npm:^3.4.2"
+    react: "npm:^18.2.0"
+    react-dom: "npm:^18.2.0"
+    typescript: "npm:^5.7.3"
+    vite: "npm:^6.2.2"
+    vite-plugin-dts: "npm:^4.5.3"
+    vite-plugin-static-copy: "npm:^3.0.0"
+    vite-plugin-top-level-await: "npm:^1.4.4"
+    vite-plugin-wasm: "npm:^3.4.1"
+    vitest: "npm:^3.0.9"
+    web-vitals: "npm:^4.2.4"
+  languageName: unknown
+  linkType: soft
+
 "@isaacs/cliui@npm:^8.0.2":
   version: 8.0.2
   resolution: "@isaacs/cliui@npm:8.0.2"
@@ -4493,35 +4522,6 @@ __metadata:
   checksum: 10c0/c5552abd98eb4ab3a8653ccb7addf24e0b6f2aa2a4c420689033f8c9d292abb2222fc08e330adf4055580ac78fe810b7467ed012cdf38f4d64175c42571b8b15
   languageName: node
   linkType: hard
-
-"@stlite/browser@workspace:packages/browser":
-  version: 0.0.0-use.local
-  resolution: "@stlite/browser@workspace:packages/browser"
-  dependencies:
-    "@emotion/babel-plugin": "npm:^11.13.5"
-    "@stlite/common": "workspace:^"
-    "@stlite/common-react": "workspace:^"
-    "@stlite/devutils": "workspace:^"
-    "@stlite/kernel": "workspace:^"
-    "@streamlit/app": "workspace:^"
-    "@types/react": "npm:^18.2.0"
-    "@types/react-dom": "npm:^18.2.0"
-    "@vitejs/plugin-react": "npm:^4.3.4"
-    codedent: "npm:^0.1.2"
-    eslint: "npm:^8.33.0"
-    prettier: "npm:^3.4.2"
-    react: "npm:^18.2.0"
-    react-dom: "npm:^18.2.0"
-    typescript: "npm:^5.7.3"
-    vite: "npm:^6.2.2"
-    vite-plugin-dts: "npm:^4.5.3"
-    vite-plugin-static-copy: "npm:^3.0.0"
-    vite-plugin-top-level-await: "npm:^1.4.4"
-    vite-plugin-wasm: "npm:^3.4.1"
-    vitest: "npm:^3.0.9"
-    web-vitals: "npm:^4.2.4"
-  languageName: unknown
-  linkType: soft
 
 "@stlite/common-react@workspace:^, @stlite/common-react@workspace:packages/common-react":
   version: 0.0.0-use.local
