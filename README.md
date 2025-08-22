@@ -45,13 +45,53 @@ Here is a sample HTML file.
     <title>Stlite App</title>
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@stlite/browser@0.76.0/build/style.css"
+      href="https://cdn.jsdelivr.net/npm/@stlite/browser@0.85.1/build/stlite.css"
+    />
+    <script
+      type="module"
+      src="https://cdn.jsdelivr.net/npm/@stlite/browser@0.85.1/build/stlite.js"
+    ></script>
+  </head>
+  <body>
+    <streamlit-app>
+      import streamlit as st
+
+      name = st.text_input('Your name')
+      st.write("Hello,", name or "world")
+    </streamlit-app>
+  </body>
+</html>
+```
+
+In this sample,
+
+- _Stlite_ is set up by loading the JavaScript and CSS files via `<script>` and `<link>` tags.
+- The _Stlite_ runtime recognizes the `<streamlit-app>` tag and launches the Streamlit app defined in it.
+
+---
+
+_Stlite_ also provides the "more raw" API with which you call the `mount()` JavaScript function explicitly to mount a Streamlit app on a specific element in the DOM.
+
+```html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>Stlite App</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@stlite/browser@0.83.0/build/stlite.css"
     />
   </head>
   <body>
     <div id="root"></div>
     <script type="module">
-      import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@0.76.0/build/stlite.js";
+      import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@0.83.0/build/stlite.js";
       mount(
         `
 import streamlit as st
@@ -68,26 +108,62 @@ st.write("Hello,", name or "world")
 
 In this sample,
 
-- _Stlite_ library is imported with the first script tag, then the global `stlite` object becomes available.
+- _Stlite_'s `mount()` function is imported within the `<script>` tag. You also need to load the CSS file via `<link>` tag as well.
 - `mount()` mounts the Streamlit app on the `<div id="root" />` element as specified via the second argument. The app script is passed via the first argument.
 
 > [!NOTE]
-> If you are using backticks `` ` `` inside your app script (e.g. if you have included markdown sections with code highlighting) they would close the script block in ``st.mount(` ... `)``. To avoid this, you can escape them with with a preceding backslash `\`.
+> If you use backticks `` ` `` inside your Streamlit code (e.g. writing markdown with code blocks), they may conflict with JavaScript string literal's backtick like ``st.mount(` ... `)``. To avoid it, you can escape them with with a preceding backslash `\`.
+> This issue doesn't occur when you use the `<streamlit-app>` tag.
 >
 > ```js
 > mount(
 >   `
 > import streamlit as st
-> 
+>
 > st.markdown("This is an inline code format: \`code\`")
 > `,
 >   document.getElementById("root"),
 > );
 > ```
 
+Hint: Technically, the `<streamlit-app>` tag API is a wrapper around the `mount()` function.
+
 ### More controls
 
-If more controls are needed such as installing dependencies or mounting multiple files, use the following API instead.
+If you need to do more such as
+
+- mounting multiple files
+- installing dependencies
+- setting the Streamlit config via the `config.toml` file
+
+you can use the `<streamlit-app>` tag with the `<app-file>`, and `<app-requirements>` tags as below.
+
+```html
+<streamlit-app>
+  <app-file name="streamlit_app.py" entrypoint>
+    import streamlit as st
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    size = st.slider("Sample size", 100, 1000)
+    arr = np.random.normal(1, 1, size=size)
+    fig, ax = plt.subplots()
+    ax.hist(arr, bins=20)
+    st.pyplot(fig)
+  </app-file>
+  <app-file name=".streamlit/config.toml">
+    [client]
+    toolbarMode = "viewer"
+  </app-file>
+  <app-requirements>
+    matplotlib
+  </app-requirements>
+</streamlit-app>
+```
+
+---
+
+If you want to use the `mount()` function instead, it would look like this:
 
 ```js
 mount(
@@ -273,6 +349,42 @@ mount(
   },
   document.getElementById("root"),
 );
+```
+
+### Install packages with options
+
+Specifying the `installs` option on `mount()` or calling `controller.install()` allows you to install packages with specific options that are passed to [`micropip.install`](https://micropip.pyodide.org/en/v0.7.1/project/api.html#micropip.install) internally.
+
+```js
+const controller = mount({
+  // ... other options ...
+  installs: [
+    {
+      requirements,
+      options: {
+        keep_going,
+        deps,
+        credentials,
+        pre,
+        index_urls,
+        constraints,
+        reinstall,
+        verbose,
+      },
+    },
+  ],
+});
+
+controller.install(requirements, {
+  keep_going,
+  deps,
+  credentials,
+  pre,
+  index_urls,
+  constraints,
+  reinstall,
+  verbose,
+});
 ```
 
 ### Different Stlite versions

@@ -85,7 +85,7 @@ jobs:
       sharing-common: ${{ steps.filter.outputs.sharing-common == 'true' || steps.filter.outputs.gha == 'true' || env.RUN_ALL_TESTS == 'true' }}
       desktop: ${{ steps.filter.outputs.desktop == 'true' || steps.filter.outputs.gha == 'true' || env.RUN_ALL_TESTS == 'true' }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         persist-credentials: false
     - uses: dorny/paths-filter@v3
@@ -125,7 +125,7 @@ jobs:
         working-directory: packages/common
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -153,7 +153,7 @@ jobs:
         working-directory: packages/kernel
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -177,7 +177,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -229,7 +229,7 @@ jobs:
         working-directory: packages/browser
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -257,7 +257,7 @@ jobs:
         working-directory: packages/sharing
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -284,7 +284,7 @@ jobs:
         working-directory: packages/sharing-editor
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -310,7 +310,7 @@ jobs:
         working-directory: packages/sharing-common
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -341,7 +341,7 @@ jobs:
         working-directory: packages/desktop
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -368,9 +368,11 @@ jobs:
 
     permissions:
       pull-requests: write
+      id-token: write
+      attestations: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -396,6 +398,15 @@ jobs:
       with:
         path: packages/browser/package.tgz
         name: stlite-browser
+
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: packages/browser/package.tgz
+      # This step may fail when the PR is created by an external contributor and the CI is run in their scope.
+      # We can ignore such failures because the following jobs such as E2E-testing in the post-build workflow don't necessarily need the attestation,
+      # while the verification is done when publishing the artifact.
+      continue-on-error: true
 
     - name: "Inform the package stats of @stlite/browser"
       uses: ./.github/actions/set-package-stats
@@ -441,7 +452,7 @@ jobs:
       pull-requests: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -486,7 +497,7 @@ jobs:
       pull-requests: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: recursive
         persist-credentials: false
@@ -524,9 +535,11 @@ jobs:
 
     permissions:
       pull-requests: write
+      id-token: write
+      attestations: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         persist-credentials: false
@@ -550,6 +563,15 @@ jobs:
         path: packages/desktop/package.tgz
         name: stlite-desktop
 
+    - name: Generate artifact attestation
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: packages/desktop/package.tgz
+      # This step may fail when the PR is created by an external contributor and the CI is run in their scope.
+      # We can ignore such failures because the following jobs such as E2E-testing in the post-build workflow don't necessarily need the attestation,
+      # while the verification is done when publishing the artifact.
+      continue-on-error: true
+
     - name: "Inform the package stats of @stlite/desktop"
       uses: ./.github/actions/set-package-stats
       continue-on-error: true
@@ -557,143 +579,3 @@ jobs:
         key: desktop
         name: "@stlite/desktop"
         input-path: packages/desktop/package.tgz
-
-  e2e-browser:
-    if: ${{ ! failure() }}  # This job should run even if the depending jobs are skipped, but not when those jobs failed: https://qiita.com/abetomo/items/d9ede7dbeeb24f723fc5#%E8%A8%AD%E5%AE%9A%E4%BE%8B4
-    needs: [build-browser]
-
-    permissions:
-      contents: read
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        persist-credentials: false
-
-    - name: Enable Corepack
-      run: corepack enable
-    - uses: actions/setup-node@v4
-      with:
-        node-version-file: ${{ env.node-version-file }}
-
-    - name: Set up the e2e-tests environment
-      run: |
-        yarn install
-        yarn install:browsers
-      working-directory: packages/browser/e2e-tests
-
-    - run: mkdir -p ${{ runner.temp }}/artifacts/browser
-    - uses: actions/download-artifact@v4
-      with:
-        name: stlite-browser
-        path: ${{ runner.temp }}/artifacts/browser
-
-    - run: tar xzvf package.tgz
-      working-directory: ${{ runner.temp }}/artifacts/browser
-
-    - name: Run the e2e-tests
-      run: yarn test
-      working-directory: packages/browser/e2e-tests
-      env:
-        BUILD_DIR: ${{ runner.temp }}/artifacts/browser/package/build
-
-  e2e-browser-browserstack:
-    if: ${{ ! failure() }}  # This job should run even if the depending jobs are skipped, but not when those jobs failed: https://qiita.com/abetomo/items/d9ede7dbeeb24f723fc5#%E8%A8%AD%E5%AE%9A%E4%BE%8B4
-    needs: [build-browser]
-
-    permissions:
-      contents: read
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: 'BrowserStack Env Setup'
-      uses: browserstack/github-actions/setup-env@master
-      with:
-        username:  ${{ secrets.BROWSERSTACK_USERNAME }}
-        access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
-
-    - name: 'BrowserStack Local Tunnel Setup'
-      uses: browserstack/github-actions/setup-local@master
-      with:
-        local-testing: start
-        local-identifier: random
-
-    - uses: actions/checkout@v4
-      with:
-        persist-credentials: false
-
-    - name: Enable Corepack
-      run: corepack enable
-    - uses: actions/setup-node@v4
-      with:
-        node-version-file: ${{ env.node-version-file }}
-
-    - name: Set up the e2e-tests environment
-      run: yarn install
-      working-directory: packages/browser/e2e-tests
-
-    - run: mkdir -p ${{ runner.temp }}/artifacts/browser
-    - uses: actions/download-artifact@v4
-      with:
-        name: stlite-browser
-        path: ${{ runner.temp }}/artifacts/browser
-
-    - run: tar xzvf package.tgz
-      working-directory: ${{ runner.temp }}/artifacts/browser
-
-    - name: Run the e2e-tests
-      run: yarn test:browserstack
-      working-directory: packages/browser/e2e-tests
-      env:
-        BUILD_DIR: ${{ runner.temp }}/artifacts/browser/package/build
-
-    - name: 'BrowserStackLocal Stop'
-      uses: browserstack/github-actions/setup-local@master
-      with:
-        local-testing: stop
-
-  e2e-desktop:
-    if: ${{ ! failure() }}  # This job should run even if the depending jobs are skipped, but not when those jobs failed: https://qiita.com/abetomo/items/d9ede7dbeeb24f723fc5#%E8%A8%AD%E5%AE%9A%E4%BE%8B4
-    needs: [build-desktop]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-
-    permissions:
-      contents: read
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        persist-credentials: false
-
-    - uses: actions/setup-node@v4
-      with:
-        node-version-file: ${{ env.node-version-file }}
-
-    - run: cp -r packages/desktop/samples/basic ${{ runner.temp }}/sample_app
-
-    - name: Download artifact into the temp dir
-      uses: actions/download-artifact@v4
-      with:
-        name: stlite-desktop
-        path: ${{ runner.temp }}/sample_app
-
-    - name: Install the tarball
-      run: |
-        npm install file:package.tgz
-      working-directory: ${{ runner.temp }}/sample_app
-
-    - run: npm run dump
-      working-directory: ${{ runner.temp }}/sample_app
-
-    # TODO: Run `yarn serve` and check if the app doesn't show any error.
-
-    - name: Check if electron-builder works
-      run: npm run app:dir
-      working-directory: ${{ runner.temp }}/sample_app

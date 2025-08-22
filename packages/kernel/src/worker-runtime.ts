@@ -39,12 +39,12 @@ async function loadPyodideAndPackages(
   onProgress: (message: string) => void,
 ) {
   const {
-    entrypoint,
     files,
     archives,
     requirements: unvalidatedRequirements,
     prebuiltPackageNames: prebuiltPackages,
     wheels,
+    installs,
     pyodideUrl = defaultPyodideUrl,
     streamlitConfig,
     idbfsMountpoints,
@@ -196,6 +196,17 @@ async function loadPyodideAndPackages(
   await micropip.install.callKwargs(requirements, { keep_going: true });
   console.debug("Installed the requirements");
 
+  if (installs) {
+    console.debug("Installing the additional requirements");
+    await Promise.all(
+      installs.map(({ requirements: unvalidatedRequirements, options }) => {
+        const requirements = validateRequirements(unvalidatedRequirements); // Blocks the not allowed wheel URL schemes.
+        console.debug("Installing the requirements:", requirements);
+        return micropip.install.callKwargs(requirements, options ?? {});
+      }),
+    );
+  }
+
   if (moduleAutoLoad) {
     const sources = pythonFilePaths.map((path) =>
       pyodide.FS.readFile(path, { encoding: "utf8" }),
@@ -345,19 +356,9 @@ __setup_script_finished_callback__`); // This last line evaluates to the functio
     console.debug("Set up the IndexedDB filesystem synchronizer");
   }
 
-  onProgress("Booting up the Streamlit server.");
-  // The following Python code is based on streamlit.web.cli.main_run().
+  // The code below is based on streamlit.web.cli.main_run().
   console.debug("Setting up the Streamlit configuration");
-  const bootstrap = await pyodide.runPython(`
-def __bootstrap__(main_script_path, flag_options, shared_worker_mode):
-    from stlite_lib.bootstrap import load_config_options, prepare
-
-    load_config_options(flag_options, shared_worker_mode)
-
-    prepare(main_script_path, [])
-
-__bootstrap__`); // This last line evaluates to the function so it is returned from pyodide.runPython() to the JS side.
-  const canonicalEntrypoint = resolveAppPath(appId, entrypoint);
+  const { load_config_options } = pyodide.pyimport("stlite_lib.bootstrap");
   const streamlitFlagOptions = {
     // gatherUsageStats is disabled as default, but can be enabled explicitly by setting it to true.
     "browser.gatherUsageStats": false,
@@ -365,28 +366,54 @@ __bootstrap__`); // This last line evaluates to the function so it is returned f
     "runner.fastReruns": false, // Fast reruns do not work well with the async script runner of stlite. See https://github.com/whitphx/stlite/pull/550#issuecomment-1505485865.
   };
   const sharedWorkerMode = appId != null;
-  bootstrap(
-    canonicalEntrypoint,
-    pyodide.toPy(streamlitFlagOptions),
-    sharedWorkerMode,
-  );
+  load_config_options(pyodide.toPy(streamlitFlagOptions), sharedWorkerMode);
   console.debug("Set up the Streamlit configuration");
+
+  // Load Jedi if the language server is enabled.
+  let jedi: PyProxy | undefined;
+  if (languageServer) {
+    onProgress("Loading auto-completion engine.");
+    console.debug("Loading Jedi");
+    try {
+      jedi = (await pyodide.pyimport("jedi")) as PyProxy;
+      console.debug("Loaded Jedi");
+    } catch (error) {
+      console.error("Failed to load Jedi:", error);
+      jedi = undefined;
+    }
+  }
+
+  return {
+    pyodide,
+    micropip,
+    jedi,
+    initData,
+  };
+}
+
+async function bootstrapServer(
+  pyodide: PyodideInterface,
+  appId: string | undefined,
+  entrypoint: string,
+) {
+  const canonicalEntrypoint = resolveAppPath(appId, entrypoint);
+
+  // The code below is based on streamlit.web.cli.main_run().
+  console.debug("Preparing the Streamlit environment");
+  const { prepare } = pyodide.pyimport("stlite_lib.bootstrap");
+  prepare(canonicalEntrypoint, []);
+  console.debug("Prepared the Streamlit environment");
 
   console.debug("Booting up the Streamlit server");
   const Server = pyodide.pyimport("stlite_lib.server.Server");
   const httpServer = Server(
     canonicalEntrypoint,
-    appId ? getAppHomeDir(appId) : null,
+    appId ? getAppHomeDir(appId) : undefined,
   );
   await httpServer.start();
   console.debug("Booted up the Streamlit server");
 
-  return {
-    pyodide,
-    httpServer,
-    micropip,
-    initData,
-  };
+  return httpServer;
 }
 
 export function startWorkerEnv(
@@ -442,6 +469,7 @@ export function startWorkerEnv(
 
   let pyodideReadyPromise: ReturnType<typeof loadPyodideAndPackages> | null =
     null;
+  let serverReadyPromise: ReturnType<typeof bootstrapServer> | null = null;
 
   /**
    * Process a message sent to the worker.
@@ -469,6 +497,15 @@ export function startWorkerEnv(
       );
 
       pyodideReadyPromise
+        .then(({ pyodide }) => {
+          onProgress("Booting up the Streamlit server.");
+          serverReadyPromise = bootstrapServer(
+            pyodide,
+            appId,
+            initData.entrypoint,
+          );
+          return serverReadyPromise;
+        })
         .then(() => {
           postMessage({
             type: "event:loaded",
@@ -489,15 +526,16 @@ export function startWorkerEnv(
     if (!pyodideReadyPromise) {
       throw new Error("Pyodide initialization has not been started yet.");
     }
+    if (!serverReadyPromise) {
+      throw new Error("Streamlit server has not been started yet.");
+    }
     const v = await pyodideReadyPromise;
     const pyodide = v.pyodide;
-    let httpServer = v.httpServer;
     const micropip = v.micropip;
-    const { moduleAutoLoad, languageServer } = v.initData;
+    const jedi = v.jedi;
+    const { moduleAutoLoad } = v.initData;
 
-    const jedi = languageServer
-      ? ((await pyodide.pyimport("jedi")) as PyProxy)
-      : null;
+    const httpServer = await serverReadyPromise;
 
     const messagePort = event.ports[0];
     function reply(message: ReplyMessage): void {
@@ -514,10 +552,8 @@ export function startWorkerEnv(
           httpServer.stop();
 
           console.debug("Booting up the Streamlit server");
-          const canonicalEntrypoint = resolveAppPath(appId, entrypoint);
-          const Server = pyodide.pyimport("stlite_lib.server.Server");
-          httpServer = Server(canonicalEntrypoint);
-          httpServer.start();
+          serverReadyPromise = bootstrapServer(pyodide, appId, entrypoint);
+          await serverReadyPromise;
           console.debug("Booted up the Streamlit server");
 
           reply({
@@ -681,12 +717,12 @@ export function startWorkerEnv(
           break;
         }
         case "install": {
-          const { requirements: unvalidatedRequirements } = msg.data;
+          const { requirements: unvalidatedRequirements, options } = msg.data;
 
           const requirements = validateRequirements(unvalidatedRequirements); // Blocks the not allowed wheel URL schemes.
           console.debug("Install the requirements:", requirements);
           await micropip.install
-            .callKwargs(requirements, { keep_going: true })
+            .callKwargs(requirements, options ?? {})
             .then(() => {
               console.debug("Successfully installed");
               reply({

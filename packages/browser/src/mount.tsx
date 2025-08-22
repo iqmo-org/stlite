@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import StreamlitApp from "./StreamlitApp";
-import { StliteKernel } from "@stlite/kernel";
+import { MicropipInstallOptions, StliteKernel } from "@stlite/kernel";
 import { parseMountOptions, MountOptions } from "./options";
 import {
   ToastContainer,
@@ -53,8 +53,8 @@ export function mount(
       kernel.dispose();
       reactRoot.unmount();
     },
-    install: (requirements: string[]) => {
-      return kernelWithToast.install(requirements);
+    install: (requirements: string[], options?: MicropipInstallOptions) => {
+      return kernelWithToast.install(requirements, options);
     },
     writeFile: (
       path: string,
@@ -86,6 +86,12 @@ export function mount(
     },
     _kernel:()=>{
       return kernel;
-    }
+    },
+    getCodeCompletion: (
+      code: string,
+      position: { line: number; column: number },
+    ) => {
+      return kernel.getCodeCompletion(code, position);
+    },
   };
 }
