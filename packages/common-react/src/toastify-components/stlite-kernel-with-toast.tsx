@@ -107,4 +107,14 @@ export class StliteKernelWithToast {
       error: "Failed to reboot",
     });
   }
+
+   public execute(...args: Parameters<StliteKernel["execute"]>) {
+    return stliteStyledPromiseToast<void>(this.kernel.execute(...args), {
+      pending: "Executing",
+      success: "Successfully executed",
+      error: "Failed to execute",
+    });
+
+    
+  }
 }

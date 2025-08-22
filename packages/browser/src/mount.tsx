@@ -72,5 +72,20 @@ export function mount(
     readFile: (path: string, opts?: Record<string, unknown>) => {
       return kernelWithToast.readFile(path, opts);
     },
+    execute(code:string){
+      return kernelWithToast.execute(code);
+    },
+    setInterrupt(signal: number){
+      return kernel.setInterrupt(signal);
+    },
+    clearInterrupt(){
+      return kernel.clearInterrupt();
+    },
+    _kernelWithToast:()=>{
+      return kernelWithToast;
+    },
+    _kernel:()=>{
+      return kernel;
+    }
   };
 }

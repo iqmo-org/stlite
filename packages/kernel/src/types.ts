@@ -148,6 +148,20 @@ export interface InMessageCodeCompletion extends InMessageBase {
   data: CodeCompletionRequestPayload;
 }
 
+export interface InMessageExecute extends InMessageBase {
+  type: "execute";
+  data: {
+    code:string
+  };
+}
+
+export interface InMessageInterrupt extends InMessageBase {
+  type: "set-interrupt-buffer";
+  data: {
+    interruptBuffer: Uint8Array<SharedArrayBuffer>
+  };
+}
+
 export type InMessage =
   | InMessageInitData
   | InMessageReboot
@@ -160,7 +174,9 @@ export type InMessage =
   | InMessageFileRead
   | InMessageInstall
   | InMessageSetEnv
-  | InMessageCodeCompletion;
+  | InMessageCodeCompletion
+  | InMessageExecute
+  | InMessageInterrupt;
 
 export interface StliteWorker extends Worker {
   postMessage(message: InMessage, transfer: Transferable[]): void;
@@ -263,6 +279,13 @@ export interface ReplyMessageCodeCompletion extends ReplyMessageBase {
     codeCompletions: CodeCompletion[];
   };
 }
+
+export interface ReplyMessageExecute extends ReplyMessageBase {
+  type: "reply:execute";
+  data: {
+    result: any;
+  };
+}
 export interface ReplyMessageGeneralReply extends ReplyMessageBase {
   type: "reply";
   error?: Error;
@@ -271,7 +294,8 @@ export type ReplyMessage =
   | ReplyMessageHttpResponse
   | ReplyMessageFileRead
   | ReplyMessageCodeCompletion
-  | ReplyMessageGeneralReply;
+  | ReplyMessageGeneralReply
+  | ReplyMessageExecute;
 
 /**
  * Validators

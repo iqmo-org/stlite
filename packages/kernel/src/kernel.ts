@@ -162,6 +162,8 @@ export class StliteKernel {
 
   private _workerInitData: WorkerInitialData;
 
+  private _interruptBuffer: Uint8Array<SharedArrayBuffer>|undefined;
+
   public readonly basePath: string; // TODO: Move this prop to outside this class. This is not a member of the kernel business logic, but just a globally referred value.
 
   public readonly hostConfigResponse: IHostConfigResponse; // Will be passed to ConnectionManager to call `onHostConfigResp` from it.
@@ -223,6 +225,21 @@ export class StliteKernel {
       env: options.env,
       languageServer: options.languageServer ?? false,
     };
+
+    if(crossOriginIsolated){
+      const interruptBuffer =  new Uint8Array(new SharedArrayBuffer(1));
+       this._interruptBuffer=interruptBuffer;
+      this._loaded.promise.then(()=>{
+        this._asyncPostMessage({
+          type: "set-interrupt-buffer",
+          data: {
+            interruptBuffer,
+          },
+        },
+        "reply"
+      ).then();
+      })
+    }
   }
 
   get loaded(): Promise<void> {
@@ -382,6 +399,29 @@ export class StliteKernel {
         entrypoint,
       },
     }).then();
+  }
+
+  public execute(code: string): Promise<any> {
+    return this._asyncPostMessage({
+        type: "execute",
+        data: {
+          code,
+        },
+      },
+      "reply:execute"
+    ).then(data=>data.result);
+  }
+
+  public setInterrupt(signal: number){
+    if(this._interruptBuffer){
+      this._interruptBuffer[0] = signal
+    }
+  }
+
+  public clearInterrupt(){
+    if(this._interruptBuffer){
+      this._interruptBuffer[0] = 0
+    }
   }
 
   private _asyncPostMessage(

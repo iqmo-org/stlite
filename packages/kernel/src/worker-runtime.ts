@@ -100,7 +100,7 @@ async function loadPyodideAndPackages(
     os.environ.update(pyodide.toPy(env));
     console.debug("Set environment variables", os.environ);
   }
-
+  
   let useIdbfs = false;
   if (idbfsMountpoints) {
     useIdbfs = true;
@@ -723,6 +723,22 @@ export function startWorkerEnv(
           });
           break;
         }
+        case "execute":
+          const {code}=msg.data;
+          const result = await pyodide.runPythonAsync(code)
+             reply({
+              type: "reply:execute",
+              data:{
+                result
+              }
+            });
+            break;
+        case "set-interrupt-buffer":
+          pyodide.setInterruptBuffer(msg.data.interruptBuffer)
+          reply({
+            type: "reply"
+          });
+
       }
     } catch (error) {
       console.error(error);

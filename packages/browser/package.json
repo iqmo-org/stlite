@@ -1,6 +1,6 @@
 {
   "name": "@iqmo/browser",
-  "version": "0.84.0",
+  "version": "0.84.8",
   "type": "module",
   "description": "Browser Stlite",
   "keywords": [
